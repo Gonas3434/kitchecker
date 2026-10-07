@@ -101,4 +101,33 @@ public final class KitChecker {
         }
         return 0;
     }
+
+    /** Kopiert das echte Inventar (Hotbar, Inventar, Ruestung, Offhand) in das Kit. */
+    public static void importFromPlayer(Kit kit, ClientPlayerEntity player) {
+        for (int i = 0; i < 36; i++) {
+            kit.slots[i] = fromStack(player.getInventory().getStack(i));
+        }
+        kit.slots[36] = fromStack(player.getEquippedStack(EquipmentSlot.FEET));
+        kit.slots[37] = fromStack(player.getEquippedStack(EquipmentSlot.LEGS));
+        kit.slots[38] = fromStack(player.getEquippedStack(EquipmentSlot.CHEST));
+        kit.slots[39] = fromStack(player.getEquippedStack(EquipmentSlot.HEAD));
+        kit.slots[40] = fromStack(player.getOffHandStack());
+    }
+
+    private static KitEntry fromStack(ItemStack stack) {
+        if (stack.isEmpty()) {
+            return null;
+        }
+        KitEntry e = new KitEntry(Registries.ITEM.getId(stack.getItem()).toString());
+        e.count = Math.max(1, stack.getCount());
+        addEnchants(e, stack.getOrDefault(DataComponentTypes.ENCHANTMENTS, ItemEnchantmentsComponent.DEFAULT));
+        addEnchants(e, stack.getOrDefault(DataComponentTypes.STORED_ENCHANTMENTS, ItemEnchantmentsComponent.DEFAULT));
+        return e;
+    }
+
+    private static void addEnchants(KitEntry e, ItemEnchantmentsComponent component) {
+        for (RegistryEntry<Enchantment> en : component.getEnchantments()) {
+            en.getKey().ifPresent(k -> e.enchants.put(k.getValue().toString(), component.getLevel(en)));
+        }
+    }
 }

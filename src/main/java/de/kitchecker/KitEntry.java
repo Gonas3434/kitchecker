@@ -15,4 +15,13 @@ public class KitEntry {
     public KitEntry(String item) {
         this.item = item;
     }
+
+    public KitEntry copy() {
+        KitEntry e = new KitEntry(item);
+        e.count = count;
+        if (enchants != null) {
+            e.enchants.putAll(enchants);
+        }
+        return e;
+    }
 }
