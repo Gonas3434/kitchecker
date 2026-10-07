@@ -23,12 +23,16 @@ import java.util.Locale;
 import java.util.stream.Collectors;
 
 /**
- * GUI: oben Kategorien, in der Mitte das Kit-Raster.
- * Ansicht: fehlende Items rot. Bearbeiten: Slot waehlen, rechts Item waehlen, Verzauberungen anklicken.
+ * Gonas3434 Kitchecker - alles auf einer Seite:
+ * oben Kategorien, links dein Kit, rechts alle Items, darunter Anzahl und Verzauberungen.
+ * Fehlende Items im Inventar werden rot markiert.
  */
 public class KitScreen extends Screen {
     private static final int CELL = 20;
     private static final int PER_PAGE = 40;
+
+    private static final int PURPLE = 0xFF7C3AED;
+    private static final int CYAN = 0xFF22D3EE;
 
     private static final List<Item> CURATED = List.of(
             Items.NETHERITE_SWORD, Items.DIAMOND_SWORD, Items.NETHERITE_AXE, Items.DIAMOND_AXE,
@@ -47,7 +51,6 @@ public class KitScreen extends Screen {
 
     private int catIndex = 0;
     private int selected = -1;
-    private boolean edit = false;
     private boolean adding = false;
     private boolean confirmDelete = false;
     private String search = "";
@@ -57,13 +60,15 @@ public class KitScreen extends Screen {
     private int gridY;
     private int pickX;
     private int pickY;
+    private int panelX1;
+    private int panelX2;
     private TextFieldWidget searchField;
     private TextFieldWidget nameField;
     private final List<ButtonWidget> pickerButtons = new ArrayList<>();
     private List<Item> pickerItems = new ArrayList<>();
 
     public KitScreen() {
-        super(Text.literal("Kit Checker"));
+        super(Text.literal("Gonas3434 Kitchecker"));
     }
 
     private Kit kit() {
@@ -123,18 +128,21 @@ public class KitScreen extends Screen {
         }
 
         Kit kit = kit();
-        int totalW = edit ? 9 * CELL + 30 + 8 * CELL : 9 * CELL;
+        int totalW = 9 * CELL + 30 + 8 * CELL;
         gridX = (width - totalW) / 2;
-        gridY = 56;
+        gridY = 80;
         pickX = gridX + 9 * CELL + 30;
         pickY = gridY;
 
         // Kategorie-Tabs
-        int total = 20;
+        int tabsTotal = 20;
         for (Kit k : KitStore.kits) {
-            total += textRenderer.getWidth(k.name) + 14 + 4;
+            tabsTotal += textRenderer.getWidth(k.name) + 14 + 4;
         }
-        int x = (width - total) / 2;
+        int x = (width - tabsTotal) / 2;
+        panelX1 = Math.min(gridX - 22, x - 14);
+        panelX2 = Math.max(gridX + totalW + 22, x + tabsTotal + 14);
+
         for (int i = 0; i < KitStore.kits.size(); i++) {
             final int idx = i;
             int w = textRenderer.getWidth(KitStore.kits.get(i).name) + 14;
@@ -143,7 +151,7 @@ public class KitScreen extends Screen {
                 selected = -1;
                 confirmDelete = false;
                 clearAndInit();
-            }).dimensions(x, 8, w, 20).build();
+            }).dimensions(x, 28, w, 20).build();
             tab.active = i != catIndex;
             addDrawableChild(tab);
             x += w + 4;
@@ -151,17 +159,9 @@ public class KitScreen extends Screen {
         addDrawableChild(ButtonWidget.builder(Text.literal("+"), b -> {
             adding = true;
             clearAndInit();
-        }).dimensions(x, 8, 20, 20).build());
+        }).dimensions(x, 28, 20, 20).build());
 
-        // Untere Leiste
-        int by = height - 28;
-        addDrawableChild(ButtonWidget.builder(Text.literal(edit ? "Fertig" : "Bearbeiten"), b -> {
-            edit = !edit;
-            selected = -1;
-            confirmDelete = false;
-            clearAndInit();
-        }).dimensions(width / 2 - 105, by, 100, 20).build());
-
+        // Kategorie loeschen (nur eigene)
         if (!kit.builtin) {
             addDrawableChild(ButtonWidget.builder(
                     Text.literal(confirmDelete ? "Wirklich löschen?" : "Kategorie löschen"), b -> {
@@ -175,11 +175,7 @@ public class KitScreen extends Screen {
                             KitStore.save();
                         }
                         clearAndInit();
-                    }).dimensions(width / 2 + 5, by, 110, 20).build());
-        }
-
-        if (!edit) {
-            return;
+                    }).dimensions(width / 2 - 55, height - 28, 110, 20).build());
         }
 
         // Slot-Buttons
@@ -247,7 +243,7 @@ public class KitScreen extends Screen {
             }
         }
 
-        // Item-Auswahl rechts
+        // Item-Auswahl rechts (immer sichtbar)
         searchField = new TextFieldWidget(textRenderer, pickX, pickY, 8 * CELL, 18, Text.literal("Suche"));
         searchField.setMaxLength(40);
         searchField.setText(search);
@@ -352,12 +348,70 @@ public class KitScreen extends Screen {
         ctx.drawText(textRenderer, text, cx - textRenderer.getWidth(text) / 2, y, color, true);
     }
 
+    private void frame(DrawContext ctx, int x1, int y1, int x2, int y2, int fill, int border) {
+        ctx.fill(x1 - 1, y1 - 1, x2 + 1, y2 + 1, border);
+        ctx.fill(x1, y1, x2, y2, fill);
+    }
+
+    /** Hintergrund-Design: Panel, Titelleiste, Karten. Wird hinter den Buttons gezeichnet. */
+    @Override
+    public void renderBackground(DrawContext ctx, int mouseX, int mouseY, float delta) {
+        super.renderBackground(ctx, mouseX, mouseY, delta);
+
+        if (adding) {
+            int x1 = width / 2 - 120;
+            int x2 = width / 2 + 120;
+            int y1 = height / 2 - 44;
+            int y2 = height / 2 + 48;
+            frame(ctx, x1 - 2, y1 - 2, x2 + 2, y2 + 2, 0xF0101018, PURPLE);
+            ctx.fill(x1, y1, x2, y1 + 2, CYAN);
+            return;
+        }
+
+        int x1 = panelX1;
+        int x2 = panelX2;
+        int y1 = 2;
+        int y2 = height - 34;
+        int mid = (x1 + x2) / 2;
+
+        // Aeusserer Rahmen (lila + cyan) und Koerper
+        ctx.fill(x1 - 3, y1 - 1, x2 + 3, y2 + 3, PURPLE);
+        ctx.fill(x1 - 2, y1, x2 + 2, y2 + 2, CYAN);
+        ctx.fill(x1 - 1, y1 + 1, x2 + 1, y2 + 1, 0xFF0B0B14);
+        ctx.fill(x1, y1 + 2, x2, y2, 0xF0101018);
+
+        // Titelleiste mit zweifarbiger Akzentlinie
+        ctx.fill(x1, y1 + 2, x2, y1 + 24, 0xFF1B1030);
+        ctx.fill(x1, y1 + 24, mid, y1 + 26, PURPLE);
+        ctx.fill(mid, y1 + 24, x2, y1 + 26, CYAN);
+
+        Text title = Text.literal("Gonas3434").formatted(Formatting.LIGHT_PURPLE, Formatting.BOLD)
+                .append(Text.literal(" Kitchecker").formatted(Formatting.AQUA, Formatting.BOLD));
+        center(ctx, title, width / 2, y1 + 9, 0xFFFFFFFF);
+
+        // Karten: Kit links, Items rechts, Details unten
+        int cardTop = gridY - 17;
+        int kitRight = gridX + 9 * CELL + 8;
+        int pickLeft = pickX - 8;
+        int pickRight = pickX + 8 * CELL + 8;
+        int pickBottom = pickY + 24 + 5 * CELL + 28;
+        frame(ctx, gridX - 8, cardTop, kitRight, gridY + 5 * CELL + 12, 0xFF171726, 0xFF2E2E48);
+        frame(ctx, pickLeft, cardTop, pickRight, pickBottom, 0xFF171726, 0xFF2E2E48);
+        frame(ctx, gridX - 8, gridY + 5 * CELL + 18, pickRight, y2 - 6, 0xFF171726, 0xFF2E2E48);
+
+        // Farbige Kopfstreifen der Karten
+        ctx.fill(gridX - 8, cardTop, kitRight, cardTop + 2, PURPLE);
+        ctx.fill(pickLeft, cardTop, pickRight, cardTop + 2, CYAN);
+        ctx.fill(gridX - 8, gridY + 5 * CELL + 18, pickRight, gridY + 5 * CELL + 20, 0xFF3B82F6);
+    }
+
     @Override
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
         super.render(ctx, mouseX, mouseY, delta);
 
         if (adding) {
-            center(ctx, Text.literal("Name der neuen Kategorie"), width / 2, height / 2 - 28, 0xFFFFFFFF);
+            center(ctx, Text.literal("Neue Kategorie").formatted(Formatting.AQUA, Formatting.BOLD),
+                    width / 2, height / 2 - 36, 0xFFFFFFFF);
             return;
         }
 
@@ -377,25 +431,29 @@ public class KitScreen extends Screen {
             }
         }
         if (itemCount == 0) {
-            center(ctx, Text.literal("Noch kein Kit gespeichert - klicke auf Bearbeiten"), width / 2, 36, 0xFFAAAAAA);
+            center(ctx, Text.literal("Noch kein Kit - wähle einen Slot und dann rechts ein Item"),
+                    width / 2, 54, 0xFFAAAAAA);
         } else if (missingCount == 0) {
-            center(ctx, Text.literal("Kit komplett - du hast alles!"), width / 2, 36, 0xFF55FF55);
+            center(ctx, Text.literal("✔ Kit komplett - du hast alles!"), width / 2, 54, 0xFF55FF55);
         } else {
-            center(ctx, Text.literal("Es fehlen " + missingCount + " von " + itemCount + " Items"), width / 2, 36, 0xFFFF5555);
+            center(ctx, Text.literal("✘ Es fehlen " + missingCount + " von " + itemCount + " Items"),
+                    width / 2, 54, 0xFFFF5555);
         }
 
-        ctx.drawText(textRenderer, Text.literal("Rüstung (Helm → Schuhe) + Offhand"), gridX, gridY - 10, 0xFF888888, false);
+        // Kartenueberschriften
+        ctx.drawText(textRenderer, Text.literal("Dein Kit").formatted(Formatting.LIGHT_PURPLE, Formatting.BOLD),
+                gridX, gridY - 12, 0xFFFFFFFF, true);
+        String hint = "Helm > Schuhe, Offhand";
+        ctx.drawText(textRenderer, Text.literal(hint), gridX + 9 * CELL - textRenderer.getWidth(hint),
+                gridY - 12, 0xFF777799, false);
+        ctx.drawText(textRenderer, Text.literal("Items").formatted(Formatting.AQUA, Formatting.BOLD),
+                pickX, gridY - 12, 0xFFFFFFFF, true);
 
         List<Text> tooltip = null;
 
         for (int i = 0; i < Kit.SLOTS; i++) {
             int sx = slotX(i);
             int sy = slotY(i);
-
-            if (!edit) {
-                ctx.fill(sx, sy, sx + CELL, sy + CELL, 0xFF2B2B2B);
-                ctx.fill(sx + 1, sy + 1, sx + CELL - 1, sy + CELL - 1, 0xFF8B8B8B);
-            }
 
             KitEntry entry = kit.slots[i];
             if (entry != null) {
@@ -407,11 +465,11 @@ public class KitScreen extends Screen {
                 }
             }
 
-            if (edit && i == selected) {
-                ctx.fill(sx, sy, sx + CELL, sy + 1, 0xFFFFFF00);
-                ctx.fill(sx, sy + CELL - 1, sx + CELL, sy + CELL, 0xFFFFFF00);
-                ctx.fill(sx, sy, sx + 1, sy + CELL, 0xFFFFFF00);
-                ctx.fill(sx + CELL - 1, sy, sx + CELL, sy + CELL, 0xFFFFFF00);
+            if (i == selected) {
+                ctx.fill(sx, sy, sx + CELL, sy + 1, CYAN);
+                ctx.fill(sx, sy + CELL - 1, sx + CELL, sy + CELL, CYAN);
+                ctx.fill(sx, sy, sx + 1, sy + CELL, CYAN);
+                ctx.fill(sx + CELL - 1, sy, sx + CELL, sy + CELL, CYAN);
             }
 
             if (entry != null && mouseX >= sx && mouseX < sx + CELL && mouseY >= sy && mouseY < sy + CELL) {
@@ -430,43 +488,38 @@ public class KitScreen extends Screen {
             }
         }
 
-        if (edit) {
-            int ctrlY = gridY + 118;
-            KitEntry sel = selected >= 0 ? kit.slots[selected] : null;
-            if (selected < 0) {
-                ctx.drawText(textRenderer, Text.literal("Wähle links einen Slot, dann rechts ein Item."),
-                        gridX, ctrlY, 0xFFFFFF55, false);
-            } else if (sel == null) {
-                ctx.drawText(textRenderer, Text.literal("Slot ist leer - wähle rechts ein Item."),
-                        gridX, ctrlY, 0xFFFFFF55, false);
-            } else {
-                ctx.drawText(textRenderer, KitChecker.stackOf(sel).getName(), gridX, ctrlY, 0xFFFFFFFF, true);
-                ctx.drawText(textRenderer, Text.literal(String.valueOf(sel.count)),
-                        gridX + 40 - textRenderer.getWidth(String.valueOf(sel.count)) / 2, ctrlY + 18, 0xFFFFFFFF, true);
-            }
+        // Details zum gewaehlten Slot
+        int ctrlY = gridY + 118;
+        KitEntry sel = selected >= 0 ? kit.slots[selected] : null;
+        if (selected < 0) {
+            ctx.drawText(textRenderer, Text.literal("Klicke oben links auf einen Slot, dann rechts auf ein Item."),
+                    gridX, ctrlY, 0xFFFFFF55, false);
+        } else if (sel == null) {
+            ctx.drawText(textRenderer, Text.literal("Slot ist leer - klicke rechts auf ein Item."),
+                    gridX, ctrlY, 0xFFFFFF55, false);
+        } else {
+            ctx.drawText(textRenderer, KitChecker.stackOf(sel).getName(), gridX, ctrlY, 0xFFFFFFFF, true);
+            ctx.drawText(textRenderer, Text.literal(String.valueOf(sel.count)),
+                    gridX + 40 - textRenderer.getWidth(String.valueOf(sel.count)) / 2, ctrlY + 18, 0xFFFFFFFF, true);
+        }
 
-            // Item-Auswahl: Items ueber die Buttons zeichnen
-            for (int i = 0; i < pickerButtons.size(); i++) {
-                int idx = page * PER_PAGE + i;
-                if (idx >= pickerItems.size()) {
-                    continue;
-                }
-                int bx = pickX + (i % 8) * CELL;
-                int by = pickY + 24 + (i / 8) * CELL;
-                Item item = pickerItems.get(idx);
-                ctx.drawItem(new ItemStack(item), bx + 2, by + 2);
-                if (mouseX >= bx && mouseX < bx + CELL && mouseY >= by && mouseY < by + CELL) {
-                    tooltip = new ArrayList<>();
-                    tooltip.add(item.getName());
-                }
+        // Item-Auswahl: Items ueber die Buttons zeichnen
+        for (int i = 0; i < pickerButtons.size(); i++) {
+            int idx = page * PER_PAGE + i;
+            if (idx >= pickerItems.size()) {
+                continue;
             }
-            int pages = Math.max(1, (pickerItems.size() + PER_PAGE - 1) / PER_PAGE);
-            center(ctx, Text.literal((page + 1) + " / " + pages), pickX + 4 * CELL, pickY + 24 + 5 * CELL + 10, 0xFFFFFFFF);
-            if (search.isBlank()) {
-                ctx.drawText(textRenderer, Text.literal("Tipp: Suche zeigt alle Items"),
-                        pickX, pickY + 24 + 5 * CELL + 28, 0xFF888888, false);
+            int bx = pickX + (i % 8) * CELL;
+            int by = pickY + 24 + (i / 8) * CELL;
+            Item item = pickerItems.get(idx);
+            ctx.drawItem(new ItemStack(item), bx + 2, by + 2);
+            if (mouseX >= bx && mouseX < bx + CELL && mouseY >= by && mouseY < by + CELL) {
+                tooltip = new ArrayList<>();
+                tooltip.add(item.getName());
             }
         }
+        int pages = Math.max(1, (pickerItems.size() + PER_PAGE - 1) / PER_PAGE);
+        center(ctx, Text.literal((page + 1) + " / " + pages), pickX + 4 * CELL, pickY + 24 + 5 * CELL + 10, 0xFFFFFFFF);
 
         if (tooltip != null) {
             ctx.drawTooltip(textRenderer, tooltip, mouseX, mouseY);
