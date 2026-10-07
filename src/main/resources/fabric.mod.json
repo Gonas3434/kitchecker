@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "kitchecker",
+  "version": "${version}",
+  "name": "Kit Checker",
+  "description": "Speichere deine Kits pro Kategorie (Duels, 2v2, Clan Duels, Rtpqueue, eigene) und sieh sofort in Rot, was dir im Inventar fehlt.",
+  "authors": ["Gonas"],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["de.kitchecker.KitCheckerClient"]
+  },
+  "depends": {
+    "fabricloader": ">=0.18.1",
+    "minecraft": "~1.21.11",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}
